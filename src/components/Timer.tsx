@@ -109,12 +109,13 @@ export const Timer = () => {
         <button
           type="button"
           onClick={toggleMusic}
-          className={`p-5 rounded-full transition-all backdrop-blur-sm ${
+          className={`p-5 rounded-full transition-all backdrop-blur-sm relative ${
             isMusicPlaying 
               ? "bg-white/30 text-white shadow-lg" 
               : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
           }`}
-          aria-label="Toggle music"
+          aria-label="Toggle lofi music"
+          title="lofi hip hop radio - beats to relax/study to"
         >
           <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 20 20">
             {isMusicPlaying ? (
@@ -123,6 +124,9 @@ export const Timer = () => {
               <path d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L4.383 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.383l4.617-3.793a1 1 0 011.383.07zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" />
             )}
           </svg>
+          {isMusicPlaying && (
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-pink-400 rounded-full animate-pulse"></span>
+          )}
         </button>
       </div>
 
@@ -167,12 +171,23 @@ export const Timer = () => {
       {isMusicPlaying && (
         <div className="mt-8 w-full max-w-lg animate-fade-in">
           <div className="rounded-3xl overflow-hidden bg-white/10 backdrop-blur-md shadow-2xl border border-white/20">
+            <div className="p-4 bg-white/5 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center">
+                  <span className="text-white text-lg">📚</span>
+                </div>
+                <div>
+                  <p className="text-white font-light text-sm">lofi hip hop radio</p>
+                  <p className="text-white/60 text-xs">beats to relax/study to</p>
+                </div>
+              </div>
+            </div>
             <iframe
               ref={iframeRef}
               width="100%"
               height="200"
-              src="https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&loop=1&playlist=jfKfPfyJRdk"
-              title="Lofi Music"
+              src="https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&loop=1&playlist=jfKfPfyJRdk&rel=0&modestbranding=1"
+              title="lofi hip hop radio - beats to relax/study to"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               className="w-full"
