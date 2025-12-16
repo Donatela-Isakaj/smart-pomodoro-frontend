@@ -1,0 +1,6 @@
+# Cloudflare Pages Configuration
+# Deploy frontend to Cloudflare Pages using Wrangler CLI
+
+name = "smart-pomodoro-frontend"
+compatibility_date = "2025-01-01"
+

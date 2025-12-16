@@ -1,22 +1,44 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePomodoroStore } from "../store/pomodoroStore";
 import { formatTime } from "../utils/time";
+
+const showNotification = (title: string, message: string) => {
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, {
+      body: message,
+      icon: "/favicon.ico",
+      badge: "/favicon.ico",
+      tag: "pomodoro-timer",
+      requireInteraction: false
+    });
+  } else if ("Notification" in window && Notification.permission !== "denied") {
+    Notification.requestPermission().then((permission) => {
+      if (permission === "granted") {
+        new Notification(title, {
+          body: message,
+          icon: "/favicon.ico",
+          badge: "/favicon.ico",
+          tag: "pomodoro-timer"
+        });
+      }
+    });
+  }
+};
 
 export const Timer = () => {
   const mode = usePomodoroStore((s) => s.mode);
   const secondsLeft = usePomodoroStore((s) => s.secondsLeft);
   const isRunning = usePomodoroStore((s) => s.isRunning);
-  const completedWorkSessions = usePomodoroStore(
-    (s) => s.completedWorkSessions
-  );
-  const tasks = usePomodoroStore((s) => s.tasks);
-  const activeTaskId = usePomodoroStore((s) => s.activeTaskId);
-
+  const completedWorkSessions = usePomodoroStore((s) => s.completedWorkSessions);
   const setMode = usePomodoroStore((s) => s.setMode);
   const start = usePomodoroStore((s) => s.start);
   const pause = usePomodoroStore((s) => s.pause);
-  const reset = usePomodoroStore((s) => s.reset);
   const tick = usePomodoroStore((s) => s.tick);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+
+  const prevSecondsLeft = useRef(secondsLeft);
+  const hasNotified = useRef(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!isRunning) return;
@@ -26,122 +48,138 @@ export const Timer = () => {
     return () => window.clearInterval(id);
   }, [isRunning, tick]);
 
-  const currentTask = tasks.find((t) => t.id === activeTaskId);
-  const nextLongBreakIn = 4 - (completedWorkSessions % 4 || 4);
+  // Request notification permission on mount
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
-  const modeLabel =
-    mode === "work"
-      ? "Work"
-      : mode === "short_break"
-      ? "Short break"
-      : "Long break";
+  // Detect when timer reaches zero
+  useEffect(() => {
+    if (isRunning && secondsLeft > 0) {
+      hasNotified.current = false;
+    }
+
+    if (isRunning && prevSecondsLeft.current > 0 && secondsLeft <= 0 && !hasNotified.current) {
+      hasNotified.current = true;
+      
+      const modeLabel = mode === "work" ? "Pomodoro" : mode === "short_break" ? "Short Break" : "Long Break";
+      const message = mode === "work" ? "Time's up! Take a break." : "Break is over! Time to focus.";
+      
+      showNotification(`${modeLabel} Complete!`, message);
+    }
+
+    prevSecondsLeft.current = secondsLeft;
+  }, [secondsLeft, isRunning, mode]);
+
+  const toggleMusic = () => {
+    setIsMusicPlaying(!isMusicPlaying);
+    // YouTube iframe API would be used here, but for simplicity we'll use embed
+  };
+
+  const getModeLabel = () => {
+    if (mode === "work") return "Focus Time";
+    if (mode === "short_break") return "Short Break";
+    return "Long Break";
+  };
 
   return (
-    <div className="space-y-4 rounded-3xl border border-slate-800/70 bg-slate-900/80 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.9)] md:p-6">
-      <div className="flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
-        <div className="inline-flex rounded-full bg-slate-900/80 p-1 text-[11px] shadow-inner ring-1 ring-slate-700/80">
-          <button
-            type="button"
-            onClick={() => setMode("work")}
-            className={`rounded-full px-3 py-1 transition ${
-              mode === "work"
-                ? "bg-emerald-500 text-slate-950 shadow"
-                : "text-slate-300 hover:bg-slate-800"
-            }`}
-          >
-            Work
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("short_break")}
-            className={`rounded-full px-3 py-1 transition ${
-              mode === "short_break"
-                ? "bg-sky-500 text-slate-950 shadow"
-                : "text-slate-300 hover:bg-slate-800"
-            }`}
-          >
-            Short break
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("long_break")}
-            className={`rounded-full px-3 py-1 transition ${
-              mode === "long_break"
-                ? "bg-indigo-500 text-slate-50 shadow"
-                : "text-slate-300 hover:bg-slate-800"
-            }`}
-          >
-            Long break
-          </button>
+    <div className="flex flex-col items-center justify-center w-full max-w-4xl mx-auto">
+      {/* Timer Display - Extra Large and Centered */}
+      <div className="mb-16 text-center">
+        <div className="mb-6 text-[10rem] md:text-[14rem] font-extralight text-white tabular-nums tracking-tighter leading-none">
+          {formatTime(Math.max(secondsLeft, 0))}
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-          <span className="rounded-full bg-slate-900/80 px-2.5 py-1">
-            Mode:{" "}
-            <span className="font-medium text-slate-100">{modeLabel}</span>
-          </span>
-          <span className="hidden rounded-full bg-slate-900/80 px-2.5 py-1 md:inline">
-            Classic Pomodoro
-          </span>
-        </div>
+        <p className="text-2xl md:text-3xl text-white/70 font-light mb-12">
+          {getModeLabel()}
+        </p>
       </div>
 
-      <div className="flex flex-col items-center gap-3 py-3 md:py-4">
-        <div
-          className={`relative inline-flex items-center justify-center rounded-full border border-slate-700/80 bg-slate-900 px-10 py-8 shadow-inner transition duration-300 md:px-14 md:py-10 ${
-            isRunning ? "ring-2 ring-emerald-500/60 ring-offset-2 ring-offset-slate-950" : ""
-          }`}
-        >
-          <span className="text-5xl font-semibold tracking-tight tabular-nums md:text-6xl">
-            {formatTime(Math.max(secondsLeft, 0))}
-          </span>
-          <div className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-[conic-gradient(from_180deg_at_50%_50%,rgba(16,185,129,0.3),transparent_45%,rgba(56,189,248,0.25),transparent_80%)] opacity-30 blur-2xl" />
-        </div>
-        <div className="flex flex-col items-center gap-1 text-[11px] text-slate-400">
-          <p className="line-clamp-1">
-            Current task:{" "}
-            <span className="font-medium text-slate-100">
-              {currentTask ? currentTask.name : "No active task selected"}
-            </span>
-          </p>
-          <p className="hidden md:block">
-            Tip: click a task on the right to focus this timer on it.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        {isRunning ? (
-          <button
-            type="button"
-            onClick={pause}
-            className="min-w-[130px] rounded-full bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-md hover:bg-slate-200"
-          >
-            Pause
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={start}
-            className="min-w-[130px] rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-md hover:bg-emerald-400"
-          >
-            Start
-          </button>
-        )}
+      {/* Control Buttons */}
+      <div className="flex items-center gap-6 mb-16">
         <button
           type="button"
-          onClick={reset}
-          className="min-w-[100px] rounded-full border border-slate-600/80 bg-slate-900/80 px-4 py-2.5 text-xs font-medium text-slate-200 hover:border-slate-400"
+          onClick={isRunning ? pause : start}
+          className="group relative px-16 py-5 rounded-full bg-white text-gray-800 text-xl font-medium shadow-2xl hover:shadow-3xl transition-all hover:scale-105 active:scale-95 backdrop-blur-sm"
         >
-          Reset
+          <span className="relative z-10">{isRunning ? "Pause" : "Start"}</span>
+        </button>
+        
+        <button
+          type="button"
+          onClick={toggleMusic}
+          className={`p-5 rounded-full transition-all backdrop-blur-sm ${
+            isMusicPlaying 
+              ? "bg-white/30 text-white shadow-lg" 
+              : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+          }`}
+          aria-label="Toggle music"
+        >
+          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 20 20">
+            {isMusicPlaying ? (
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+            ) : (
+              <path d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L4.383 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.383l4.617-3.793a1 1 0 011.383.07zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" />
+            )}
+          </svg>
         </button>
       </div>
 
-      <div className="mt-1 flex flex-col items-center justify-between gap-1 text-[11px] text-slate-500 md:flex-row">
-        <span>Pomodoros completed: {completedWorkSessions}</span>
-        <span>Next long break in: {nextLongBreakIn} pomodoro(s)</span>
+      {/* Mode Selector - Minimal and Elegant */}
+      <div className="flex gap-3 mb-12">
+        <button
+          type="button"
+          onClick={() => setMode("work")}
+          className={`px-8 py-3 rounded-full text-base font-light transition-all backdrop-blur-sm ${
+            mode === "work"
+              ? "bg-white/25 text-white shadow-lg"
+              : "text-white/60 hover:text-white/90 hover:bg-white/10"
+          }`}
+        >
+          Focus
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("short_break")}
+          className={`px-8 py-3 rounded-full text-base font-light transition-all backdrop-blur-sm ${
+            mode === "short_break"
+              ? "bg-white/25 text-white shadow-lg"
+              : "text-white/60 hover:text-white/90 hover:bg-white/10"
+          }`}
+        >
+          Short Break
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("long_break")}
+          className={`px-8 py-3 rounded-full text-base font-light transition-all backdrop-blur-sm ${
+            mode === "long_break"
+              ? "bg-white/25 text-white shadow-lg"
+              : "text-white/60 hover:text-white/90 hover:bg-white/10"
+          }`}
+        >
+          Long Break
+        </button>
       </div>
+
+      {/* Lofi Music Player - Elegant and Minimal */}
+      {isMusicPlaying && (
+        <div className="mt-8 w-full max-w-lg animate-fade-in">
+          <div className="rounded-3xl overflow-hidden bg-white/10 backdrop-blur-md shadow-2xl border border-white/20">
+            <iframe
+              ref={iframeRef}
+              width="100%"
+              height="200"
+              src="https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&loop=1&playlist=jfKfPfyJRdk"
+              title="Lofi Music"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="w-full"
+            ></iframe>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
-

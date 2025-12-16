@@ -42,6 +42,8 @@ type PomodoroActions = {
   tick: () => void;
   addTask: (name: string, category?: string) => void;
   setActiveTask: (taskId: string) => void;
+  removeTask: (taskId: string) => void;
+  setDurations: (work: number, shortBreak: number, longBreak: number) => void;
 };
 
 const STORAGE_KEY = "smart-pomodoro-state-v1";
@@ -251,6 +253,54 @@ export const usePomodoroStore = create<PomodoroState & PomodoroActions>()(
       setActiveTask: (taskId: string) =>
         set((state) => {
           const next: PomodoroState = { ...state, activeTaskId: taskId };
+          persist(next);
+          return next;
+        }),
+
+      removeTask: (taskId: string) =>
+        set((state) => {
+          const tasks = state.tasks.filter((t) => t.id !== taskId);
+          const activeTaskId =
+            state.activeTaskId === taskId
+              ? tasks.length > 0
+                ? tasks[0].id
+                : null
+              : state.activeTaskId;
+          const next: PomodoroState = {
+            ...state,
+            tasks,
+            activeTaskId
+          };
+          persist(next);
+          return next;
+        }),
+
+      setDurations: (work: number, shortBreak: number, longBreak: number) =>
+        set((state) => {
+          // Ensure minimum 1 minute
+          const workSec = Math.max(60, work * 60);
+          const shortBreakSec = Math.max(60, shortBreak * 60);
+          const longBreakSec = Math.max(60, longBreak * 60);
+
+          // Update current secondsLeft if mode matches
+          let secondsLeft = state.secondsLeft;
+          if (state.mode === "work") {
+            secondsLeft = workSec;
+          } else if (state.mode === "short_break") {
+            secondsLeft = shortBreakSec;
+          } else if (state.mode === "long_break") {
+            secondsLeft = longBreakSec;
+          }
+
+          const next: PomodoroState = {
+            ...state,
+            workDuration: workSec,
+            shortBreakDuration: shortBreakSec,
+            longBreakDuration: longBreakSec,
+            secondsLeft,
+            isRunning: false,
+            lastTick: null
+          };
           persist(next);
           return next;
         })
